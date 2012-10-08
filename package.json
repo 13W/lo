@@ -1,10 +1,6 @@
 {
   "name": "lo",
-  "author": {
-    "name": "Vladimir Bulyga",
-    "email": "zero@cetku.net",
-    "url": "http://cetku.net"
-  },
+  "author": "Vladimir Bulyga <zero@cetku.net> (http://cetku.net)",
   "description": "console.log extension, who got more functionality and mobility to debug scripts",
   "preferGlobal": true,
   "homepage": "http://cetku.net",
@@ -14,7 +10,19 @@
   "engines": {
     "node": "*"
   },
-  "_id": "lo@0.1.0",
-  "readme": "ERROR: No README.md file found!",
-  "_from": "lo@*"
+  "_from": "lo@*",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/up2beer/lo.git"
+  },
+  "keywords": [
+    "console",
+    "log",
+    "console.log",
+    "logger"
+  ],
+  "license": "BSD"
 }
