@@ -126,29 +126,33 @@ var util = require( 'util'),
         };
 
         this.stackTrace = function stackTrace( ) {
-            var stack = null, message = null;
-            if ( arguments[0] instanceof Error ) {
+            var ErrorName = arguments[0].name,
+                ErrorType = arguments[0] instanceof Error && Error || arguments[0] instanceof RangeError && RangeError,
+                ErrorMessage = ErrorType && arguments[0].message,
+                ErrorStack = ErrorType && arguments[0].stack;
+            
+            if (ErrorType) {
+//                console.error(ErrorType == RangeError, ErrorType === Error, arguments[0].name);
+                if (ErrorName === 'RangeError') return { stack: null, message: ErrorMessage, title: 'RangeError'};
 
-                if ( arguments[0] && !arguments[0].stack ) {
-                    message = arguments[0].message || null;
-                    arguments[0].message = null;
-                    Error.captureStackTrace( arguments[0], this );
+                if ( ErrorType && !ErrorStack ) {
+                    ErrorType.captureStackTrace( arguments[0], this );
+                    ErrorMessage = arguments[0].message;
+                    ErrorStack = arguments[0].stack;
                 }
 
-                if ( arguments[0].message && arguments[0].stack.indexOf( arguments[0].message ) != -1 )
-                    stack = arguments[0].stack.slice(arguments[0].stack.indexOf( arguments[0].message )+arguments[0].message.length);
-                else stack = arguments[0].stack;
+                if (ErrorMessage && ~ErrorStack.indexOf(ErrorMessage))
+                    ErrorStack = ErrorStack.slice(ErrorStack.indexOf( ErrorMessage )+ErrorMessage.length);
 
-                stack = stack.split(/\n/).splice(1).join('\n');
-                message = arguments[0].message;
+                ErrorStack = ErrorStack.split(/\n/).splice(1).join('\n');
             } else {
                 Error.stackTraceLimit = this.options.stackTraceLimit;
                 Error.captureStackTrace( error, this );
-                stack = error.stack.split(/\n/).splice( 4 ).join('\n');
-                message = error.message;
+                ErrorStack = error.stack.split(/\n/).splice( 4 ).join('\n');
+                ErrorMessage = error.message;
             }
 
-            return { stack: stack, message: message };
+            return { stack: ErrorStack, message: ErrorMessage };
         };
 
         this.formatTextLog = function formatTextError( errorLevel, script, message ) {
@@ -165,7 +169,7 @@ var util = require( 'util'),
 
         this.createMessage = function( ) {
             var stackTrace = self.stackTrace( arguments[ 0 ] ),
-                script = stackTrace.stack.split( /\n/ )[1] && stackTrace.stack.split( /\n/ )[0].replace( /\ +/g, ' ' ) || 'undefined',
+                script = stackTrace.stack && stackTrace.stack.split( /\n/ )[1] && stackTrace.stack.split( /\n/ )[0].replace( /\ +/g, ' ' ) || stackTrace.title || 'undefined',
                 message = stackTrace.message || util.format.apply( null, arguments );
 
             return {
@@ -200,7 +204,7 @@ var util = require( 'util'),
                     return;
                 }
 
-                var stackTrace = '\n   Trace:   ' + msg.stackTrace.stack.replace( /\ +/g, ' ' ).split( /\n/ ).splice(1).join( '\n            '),
+                var stackTrace = msg.stackTrace.stack && '\n   Trace:   ' + msg.stackTrace.stack.replace( /\ +/g, ' ' ).split( /\n/ ).splice(1).join( '\n            ') || '',
                     message = self.formatTextLog( Level, msg.script, msg.message );
 
                 if ( Level > 0 && ( LL_ERROR | LL_FATAL ) & Level )
