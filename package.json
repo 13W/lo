@@ -4,9 +4,9 @@
   "description": "console.log extension, who got more functionality and mobility to debug scripts",
   "preferGlobal": true,
   "homepage": "http://cetku.net",
-  "main": "./LoggerWeb",
+  "main": "./logger",
   "dependencies": {},
-  "version": "0.1.3",
+  "version": "0.1.4",
   "engines": {
     "node": "*"
   },
