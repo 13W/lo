@@ -70,9 +70,6 @@ var util = require( 'util'),
             logLevel        :   LL_ALL | LOG_TO_STDOUT
         };
 
-//        _console.log( options );
-
-
         for ( var o in this.options ) {
             if ( options[ o ] ) this.options[ o ] = options[ o ];
         }
@@ -126,32 +123,29 @@ var util = require( 'util'),
         };
 
         this.stackTrace = function stackTrace( ) {
-            var ErrorName = arguments[0].name,
-                ErrorType = arguments[0] instanceof Error && Error || arguments[0] instanceof RangeError && RangeError,
-                ErrorMessage = ErrorType && arguments[0].message,
-                ErrorStack = ErrorType && arguments[0].stack;
-            
-            if (ErrorType) {
-                if (ErrorName === 'RangeError' && !ErrorStack) return { stack: null, message: ErrorMessage, title: 'RangeError'};
+            var stack = null, message = null;
+            if ( arguments[0] instanceof Error ) {
 
-                if ( ErrorType && !ErrorStack ) {
-                    ErrorType.captureStackTrace( arguments[0], this );
-                    ErrorMessage = arguments[0].message;
-                    ErrorStack = arguments[0].stack;
+                if ( arguments[0] && !arguments[0].stack ) {
+                    message = arguments[0].message || null;
+                    arguments[0].message = null;
+                    Error.captureStackTrace( arguments[0], this );
                 }
 
-                if (ErrorMessage && ~ErrorStack.indexOf(ErrorMessage))
-                    ErrorStack = ErrorStack.slice(ErrorStack.indexOf( ErrorMessage )+ErrorMessage.length);
+                if ( arguments[0].message && arguments[0].stack.indexOf( arguments[0].message ) != -1 )
+                    stack = arguments[0].stack.slice(arguments[0].stack.indexOf( arguments[0].message )+arguments[0].message.length);
+                else stack = arguments[0].stack;
 
-                ErrorStack = ErrorStack.split(/\n/).splice(1).join('\n');
+                stack = stack.split(/\n/).splice(1).join('\n');
+                message = arguments[0].message;
             } else {
                 Error.stackTraceLimit = this.options.stackTraceLimit;
                 Error.captureStackTrace( error, this );
-                ErrorStack = error.stack.split(/\n/).splice( 4 ).join('\n');
-                ErrorMessage = error.message;
+                stack = error.stack.split(/\n/).splice( 4 ).join('\n');
+                message = error.message;
             }
 
-            return { stack: ErrorStack, message: ErrorMessage };
+            return { stack: stack, message: message };
         };
 
         this.formatTextLog = function formatTextError( errorLevel, script, message ) {
@@ -168,7 +162,7 @@ var util = require( 'util'),
 
         this.createMessage = function( ) {
             var stackTrace = self.stackTrace( arguments[ 0 ] ),
-                script = stackTrace.stack && stackTrace.stack.split( /\n/ )[1] && stackTrace.stack.split( /\n/ )[0].replace( /\ +/g, ' ' ) || stackTrace.title || 'undefined',
+                script = stackTrace.stack.split( /\n/ )[1] && stackTrace.stack.split( /\n/ )[0].replace( /\ +/g, ' ' ) || 'undefined',
                 message = stackTrace.message || util.format.apply( null, arguments );
 
             return {
@@ -180,7 +174,6 @@ var util = require( 'util'),
 
         this.Log = function( Level, Message ) {
             function _Log( ) {
-
                 if ( !( self.options.logLevel || self.options.logLevel & Level ) ) return;
 
                 var preMessage = ErrorFuncs[ Level ] && ErrorFuncs[ Level ].apply( null, arguments );
@@ -191,7 +184,6 @@ var util = require( 'util'),
 
                 var msg = self.createMessage.apply( null, preMessage );
 
-//                _console.log( self.options.bufferSize, self.options.logTo );
                 if ( self.options.bufferSize > 0 && self.options.logLevel & LOG_TO_BUFFER ) {
                     if ( !self._buffer ) self._buffer = new self.buffer( self.options.bufferSize );
 
@@ -203,7 +195,7 @@ var util = require( 'util'),
                     return;
                 }
 
-                var stackTrace = msg.stackTrace.stack && '\n   Trace:   ' + msg.stackTrace.stack.replace( /\ +/g, ' ' ).split( /\n/ ).splice(1).join( '\n            ') || '',
+                var stackTrace = '\n   Trace:   ' + msg.stackTrace.stack.replace( /\ +/g, ' ' ).split( /\n/ ).splice(1).join( '\n            '),
                     message = self.formatTextLog( Level, msg.script, msg.message );
 
                 if ( Level > 0 && ( LL_ERROR | LL_FATAL ) & Level )
@@ -222,7 +214,11 @@ var util = require( 'util'),
         };
 
         this.logLevel = function logLevel( level ) {
-            self.options.logLevel = LL_ALL & level ? level : LL_NONE;
+            self.options.logLevel = LL_NONE === level 
+                ? LL_NONE 
+                : LL_ALL & level 
+                    ? level | level-1 
+                    : LL_NONE;
         };
 
         this.flush = function() {
@@ -244,16 +240,48 @@ var util = require( 'util'),
     };
 
 console.Logger = new Logger(  );
+console.__previous = {};
 
-console.__defineGetter__( 'log', function() { return console.Logger.Log( LL_INFO ) } );
-console.__defineGetter__( '_log', function() { return _console.log } );
-console.__defineGetter__( '_error', function() { return _console.error } );
-console.__defineGetter__( 'info', function() { return console.Logger.Log( LL_INFO ) } );
-console.__defineGetter__( 'warn', function() { return console.Logger.Log( LL_WARN ) } );
-console.__defineGetter__( 'error', function() { return console.Logger.Log( LL_ERROR ) } );
-console.__defineGetter__( 'fatal', function() { return console.Logger.Log( LL_FATAL ) } );
-console.__defineGetter__( 'debug', function() { return console.Logger.Log( LL_DEBUG ) } );
-console.__defineGetter__( 'inspect', function() { return console.Logger.Log( LL_INSPECT ) } );
+var methods = {
+    log     :   function() { return console.Logger.Log(LL_INFO)},
+    _log    :   function() { return _console.log},
+    _error  :   function() { return _console.error},
+    info    :   function() { return console.Logger.Log(LL_INFO)},
+    warn    :   function() { return console.Logger.Log(LL_WARN)},
+    error   :   function() { return console.Logger.Log(LL_ERROR)},
+    fatal   :   function() { return console.Logger.Log(LL_FATAL)},
+    debug   :   function() { return console.Logger.Log(LL_DEBUG)},
+    inspect :   function() { return console.Logger.Log(LL_INSPECT)}
+};
+
+console.__defineGetter__('__set', function() {
+    for (var ll in methods) {
+        var lg = console.__lookupGetter__(ll),
+            ls = console.__lookupSetter__(ll),
+            ff = console[ll];
+
+        lg && console.__previous.__defineGetter__(ll, lg);
+        ls && console.__previous.__defineSetter__(ll, ls);
+        if (!(lg && ls) && !console.__previous[ll]) console.__previous[ll] = ff;
+        console.__defineGetter__(ll, methods[ll]);
+    }
+});
+
+console.__defineGetter__( '__unset', function() {
+    for (var ll in methods) {
+        var lg = console.__previous.__lookupGetter__(ll),
+            ls = console.__previous.__lookupSetter__(ll),
+            ff = console.__previous[ll];
+
+        lg && console.__defineGetter__(ll, lg);
+        ls && console.__defineSetter__(ll, ls);
+        if (!(lg && ls) && ff) {
+            Object.defineProperty(console, ll, {
+                value: ff
+            });
+        };
+    }
+});
 
 console.__defineGetter__( 'logLevel', function() { return console.Logger.logLevel } );
 
@@ -288,24 +316,6 @@ ErrorFuncs[ LL_INSPECT ] = function(  ) {
     return message;
 };
 
-//var L = new Logger({
-//    logTo   :   LOG_TO_BUFFER,
-//    bufferSize:     2024
-//});
-//
-//L.Log( LL_DEBUG, 'first message' );
-//L.Log( LL_INFO, 'next message' );
-//L.Log( LL_INSPECT, {asd:'third message'} );
-//
-//console.inspect( L.flush() );
-
-//console.Logger.logLevel( 600 );
-//console.log( 'log' );
-//console.warn( 'warn' );
-//console.error( 'error' );
-//console.fatal( 'fatal' );
-//console.debug( 'debug' );
-//console.log( console.Logger.options.logLevel );
-//console.inspect( {first: 'one'}, { second: 'two' } );
+console.__set;
 
 module.exports = Logger;
