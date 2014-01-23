@@ -44,3 +44,7 @@ console.logLevel(console.level.LL_ALL);
 console.__unset - return to default
 console.__set   - return to logger
 ```
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/13W/lo/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
